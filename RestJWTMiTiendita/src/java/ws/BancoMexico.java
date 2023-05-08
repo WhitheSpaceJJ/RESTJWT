@@ -1,11 +1,9 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/WebServices/GenericResource.java to edit this template
- */
 package ws;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,50 +19,52 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 @Path("bancomexico")
 public class BancoMexico {
 
     private static double tipoDeCambioPesoDolar = 0.0;
     private static double tipoDeCambioPesoEuro = 0.0;
+    private ExecutorService executorService = java.util.concurrent.Executors.newCachedThreadPool();
+    private static List<Usuario> usuarios = new ArrayList<>();
+
+    public BancoMexico() {
+        if (BancoMexico.usuarios.isEmpty()) {
+              Random random = new Random();
+            tipoDeCambioPesoDolar = 18 + random.nextDouble() * 5;
+            tipoDeCambioPesoEuro = 21 + random.nextDouble() * 5;
+            for (int i = 0; i < 10; i++) {
+                usuarios.add(new Usuario("usuario" + i, "contrasena" + i));
+            }
+        }
+    }
+
+    
+
+    public static boolean validarUsuario(Usuario usuario) {
+        for (int i = 0; i < usuarios.size(); i++) {
+            Usuario get = usuarios.get(i);
+            if (get.getContrasena().equalsIgnoreCase(usuario.getContrasena()) && get.getUsuario().equalsIgnoreCase(usuario.getUsuario())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @POST
     @Path("login")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
     public String login(Usuario usuario) {
-        if (usuario.getUsuario().equals("usuario1") && usuario.getContrasena().equals("contrasena1")) {
-            String token = JWTUtil.generateToken(usuario);
+        if (validarUsuario(usuario)) {
+            String token = JWTUtilBanco.getIntance().generateToken(usuario);
             return token;
-        } else {
+        } 
+        else {
             return "Error de autenticación";
         }
     }
-
- 
-    @GET
-    @Path("tipo-cambio-peso-dolar")
-    @Produces(MediaType.APPLICATION_JSON)
-    public String getTipoDeCambioPesoDolar(@HeaderParam("Authorization") String authorizationHeader) {
-         if (!JWTUtil.validateToken(authorizationHeader)) {
-            throw new NotAuthorizedException("Token inválido");
-        }
-        return "{ \"tipoCambio\": " + tipoDeCambioPesoDolar + " }";
-    }
-
-
-    static {
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        LocalDateTime midnight = LocalDateTime.now().plusDays(1).withHour(0).withMinute(1);
-        long initialDelay = LocalDateTime.now().until(midnight, ChronoUnit.SECONDS);
-        executor.scheduleAtFixedRate(() -> {
-            // Genera valores aleatorios para los tipos de cambio
-            Random random = new Random();
-            tipoDeCambioPesoDolar = 18 + random.nextDouble() * 5;
-            tipoDeCambioPesoEuro = 21 + random.nextDouble() * 5;
-        }, initialDelay, 24 * 60 * 60, TimeUnit.SECONDS);
-    }
-    private ExecutorService executorService = java.util.concurrent.Executors.newCachedThreadPool();
 
     @POST
     @Path(value = "tipo-cambio-peso-dolar")
@@ -79,9 +79,9 @@ public class BancoMexico {
     }
 
     private void doSetTipoDeCambioPesoDolar(@HeaderParam("Authorization") String authorizationHeader, double tipoCambio) {
-        if (!JWTUtil.validateToken(authorizationHeader)) {
-            throw new NotAuthorizedException("Token inválido");
-        }
+//        if (!JWTUtilBanco.getIntance().validateToken(authorizationHeader)) {
+//            throw new NotAuthorizedException("Token inválido");
+//        }
         tipoDeCambioPesoDolar = tipoCambio;
     }
 
@@ -98,9 +98,9 @@ public class BancoMexico {
     }
 
     private void doSetTipoDeCambioPesoEuro(@HeaderParam("Authorization") String authorizationHeader, double tipoCambio) {
-        if (!JWTUtil.validateToken(authorizationHeader)) {
-            throw new NotAuthorizedException("Token inválido");
-        }
+//        if (!JWTUtilBanco.getIntance().validateToken(authorizationHeader)) {
+//            throw new NotAuthorizedException("Token inválido");
+//        }
         tipoDeCambioPesoEuro = tipoCambio;
     }
 
@@ -116,9 +116,27 @@ public class BancoMexico {
     }
 
     private String doGetTipoDeCambioPesoEuro(@HeaderParam("Authorization") String authorizationHeader) {
-        if (!JWTUtil.validateToken(authorizationHeader)) {
-            throw new NotAuthorizedException("Token inválido");
-        }
+//        if (!JWTUtilBanco.getIntance().validateToken(authorizationHeader)) {
+//            throw new NotAuthorizedException("Token inválido");
+//        }
         return "{ \"tipoCambio\": " + tipoDeCambioPesoEuro + " }";
+    }
+
+    @GET
+    @Path(value = "tipo-cambio-peso-dolar")
+    @Produces(value = MediaType.APPLICATION_JSON)
+    public void getTipoDeCambioPesoDolar(@Suspended final AsyncResponse asyncResponse, @HeaderParam(value = "Authorization") final String authorizationHeader) {
+        executorService.submit(new Runnable() {
+            public void run() {
+                asyncResponse.resume(doGetTipoDeCambioPesoDolar(authorizationHeader));
+            }
+        });
+    }
+
+    private String doGetTipoDeCambioPesoDolar(@HeaderParam("Authorization") String authorizationHeader) {
+//        if (!JWTUtilBanco.getIntance().validateToken(authorizationHeader)) {
+//            throw new NotAuthorizedException("Token inválido");
+//        }
+        return "{ \"tipoCambioDolar\": " + tipoDeCambioPesoDolar + " }";
     }
 }

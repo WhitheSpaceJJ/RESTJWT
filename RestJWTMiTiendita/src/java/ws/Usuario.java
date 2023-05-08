@@ -3,7 +3,6 @@ package ws;
 
 import java.util.Objects;
 
-
 public class Usuario {
    private String usuario;
    private String contrasena;
